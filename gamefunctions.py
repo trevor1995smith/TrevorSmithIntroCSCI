@@ -36,7 +36,140 @@ def purchase_item(itemPrice, startingMoney, quantityToPurchase=1):
     
     return quantityToPurchase, leftover_money #returns the number to purchase and leftover money
 
+def visit_shop(user_gold, inventory):
+    """Allows the user to buy items from the shop."""
 
+    # Shop items
+    shop_items = [
+        {"name": "Sword", "type": "weapon", "price": 15, "damage_bonus": 5, "durability": 5},
+        {"name": "Axe", "type": "weapon", "price": 10, "damage_bonus": 3, "durability": 3},
+        {"name": "Monster Repellent", "type": "weapon", "price": 8, "damage_bonus": 0, "durability": 1, "effect": "auto_defeat"},
+        {"name": "Health Potion", "type": "consumable", "price": 5, "effect": "heal", "amount": 10}
+    ]
+    
+    print("\nWelcome to the shop!")
+    print(f"Your gold: {user_gold}")
+    print("Available items:")
+    
+    for i, item in enumerate(shop_items, 1):
+        print(f"{i}) {item['name']} - {item['price']} gold (Type: {item['type']})")
+    
+    print(f"{len(shop_items)+1}) Back to town")
+    
+    while True:
+        choice = input("Enter your choice: ")
+        
+        try:
+            choice = int(choice)
+            if choice == len(shop_items)+1:
+                return user_gold, inventory
+            elif 1 <= choice <= len(shop_items):
+                selected_item = shop_items[choice-1]
+                if user_gold >= selected_item['price']:
+                    user_gold -= selected_item['price']
+                    # Create a new copy of the item for inventory
+                    new_item = selected_item.copy()
+                    # For weapons, add current durability equal to max durability
+                    if new_item['type'] == 'weapon':
+                        new_item['current_durability'] = new_item['durability']
+                    inventory.append(new_item)
+                    print(f"\nYou bought {selected_item['name']}!")
+                    print(f"Remaining gold: {user_gold}")
+                    break
+                else:
+                    print("\nNot enough gold!")
+                    break
+            else:
+                print("\nInvalid choice. Please try again.")
+        except ValueError:
+            print("\nPlease enter a number.")
+    return user_gold, inventory
+    
+def manage_inventory(equipped_weapon, user_hp, inventory):
+    """Allows the user to view, equip, unequip, and use items."""
+    
+    while True:
+        print("\n=== INVENTORY ===")
+        if not inventory:
+            print("Your inventory is empty.")
+            print("1) Back to town")
+            choice = input("Enter your choice: ")
+            if choice == "1":
+                return
+            continue
+        
+        # Display equipped weapon status
+        if equipped_weapon:
+            print(f"Currently equipped: {equipped_weapon['name']} "
+                  f"({equipped_weapon.get('current_durability', equipped_weapon['durability'])}/{equipped_weapon['durability']} dura)")
+        else:
+            print("No weapon currently equipped")
+        
+        # Display all items
+        for i, item in enumerate(inventory, 1):
+            item_info = f"{i}) {item['name']} ({item['type']})"
+            if item == equipped_weapon:
+                item_info += " [EQUIPPED]"
+            elif item['type'] == 'weapon':
+                durability = item.get('current_durability', item['durability'])
+                item_info += f" [Weapon - {durability}/{item['durability']} dura]"
+            print(item_info)
+        
+        print(f"\nOptions:")
+        print("1-{}) Select item".format(len(inventory)))
+        if equipped_weapon:
+            print("U) Unequip current weapon")
+        print("B) Back to town")
+        
+        choice = input("\nWhat would you like to do? ").upper()
+
+        if choice == "B":
+            return
+        elif choice == "U" and equipped_weapon:
+            print(f"\nYou unequipped {equipped_weapon['name']}")
+            equipped_weapon = None
+            continue
+        else:
+            try:
+                choice = int(choice)
+                if 1 <= choice <= len(inventory):
+                    selected_item = inventory[choice-1]
+                    
+                    if selected_item['type'] == "weapon":
+                        if selected_item == equipped_weapon:
+                            print(f"\n{selected_item['name']} is already equipped!")
+                        else:
+                            if equipped_weapon:
+                                print(f"\nSwapped {equipped_weapon['name']} for {selected_item['name']}")
+                            else:
+                                print(f"\nEquipped {selected_item['name']}")
+                            equipped_weapon = selected_item
+                    
+                    elif selected_item['type'] == "consumable":
+                        user_hp, inventory = use_consumable(selected_item, user_hp, inventory)
+                        return  # Return to town after using consumable
+                    
+                    else:
+                        print("\nThis item has no special use.")
+                else:
+                    print("\nInvalid choice. Please try again.")
+            except ValueError:
+                print("\nPlease enter a valid item number or command.")
+            return equipped_weapon, user_hp
+
+def use_consumable(item, user_hp, inventory):
+    """Uses a consumable item from the inventory."""
+    
+    if item['effect'] == "heal":
+        user_hp += item['amount']
+        print(f"You used {item['name']} and healed {item['amount']} HP!")
+    elif item['effect'] == "auto_defeat":
+        print(f"You used {item['name']} - it will automatically defeat the next monster!")
+    
+    inventory.remove(item)
+
+    return user_hp, inventory
+                
 def new_random_monster(): #creates a new function new_random_monster
     if __name__ == "__main__":
         new_random_monster()
@@ -154,16 +287,18 @@ def print_shop_menu(item1Name, item1Price, item2Name, item2Price):
     print(f'| {item2Name:<12} ${item2Price:>7.2f} |') #print the second item and price
     print('\\----------------------/') #print border
 
-def display_town_menu(user_hp, user_gold):
-    """
-    Displays the town menu and prompts the user for their choice.
-    """
+def display_town_menu(user_hp, user_gold, equipped_weapon):
+    """Displays the town menu and prompts the user for their choice."""
     print("\nYou are in town.")
     print(f"Current HP: {user_hp}, Current Gold: {user_gold}")
+    if equipped_weapon:
+        print(f"Equipped Weapon: {equipped_weapon['name']} (Durability: {equipped_weapon['durability']})")
     print("What would you like to do?")
     print("1) Leave town (Fight Monster)")
     print("2) Sleep (Restore HP for 5 Gold)")
-    print("3) Quit")
+    print("3) Visit Shop")
+    print("4) Manage Inventory")
+    print("5) Quit")
 
 def fight_monster(user_hp, user_gold):
     """
