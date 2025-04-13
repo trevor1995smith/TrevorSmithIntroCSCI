@@ -1,374 +1,265 @@
 #Trevor Smith
-#Assignment 11
-#4/6/25
-#Functions with DocStrings
+#Assignment 12
+#4/12/25
 
-import random #imports the random package
+import random
+import json
+import os
+import glob
 
-def print_welcome(name, width=20):
-    if __name__ == "__main__":
-        print_welcome()
-    """
-    Prints a welcome message for the supplied 'name' parameter.
-    The output is centered within a field of the specified width.
-
-    Parameters:
-    name (str): The name to include in the welcome message.
-    width (int, optional): The width of the field for centering the message. Defaults to 20.
-
-    Returns:
-    None
-
-    Example:
-    >>> print_welcome("Jason")
-       Hello, Jason!            
-
-    """
-    # Print the welcome message, centered within the specified width
-    print(f'{f"Hello, {name}!":^{width}}')
-
-def display_town_menu(user_hp, user_gold, equipped_weapon):
-    """
-    Displays the town menu and prompts the user for their choice.
-    """
-    print("\nYou are in town.")
-    print(f"Current HP: {user_hp}, Current Gold: {user_gold}")
-    if equipped_weapon:
-        print(f"Equipped Weapon: {equipped_weapon['name']} (Durability: {equipped_weapon['durability']})")
-    print("What would you like to do?")
-    print("1) Leave town (Fight Monster)")
-    print("2) Sleep (Restore HP for 5 Gold)")
-    print("3) Visit Shop")
-    print("4) Manage Inventory")
-    print("5) Quit")
-
-def new_random_monster(): #creates a new function new_random_monster
-    if __name__ == "__main__":
-        new_random_monster()
-    """
-    Generates a random monster with attributes such as name, description, health, power, and money.
-
-    Returns:
-    dict: A dictionary containing the monster's attributes:
-        - name (str): The name of the monster.
-        - description (str): A description of the monster.
-        - health (int): The health of the monster, randomly generated within a range.
-        - power (int): The power of the monster, randomly generated within a range.
-        - money (int): The money the monster carries, randomly generated within a range.
-
-    Example:
-    >>> new_random_monster()
-    {
-        'name': 'Vampire',
-        'description': 'Vampires are very dangerous at night...',
-        'health': 25,
-        'power': 8,
-        'money': 15
-    }
-    
-    """
-    #creates a dictionary within a list
-    monsters = [
-        {   'name': 'Vampire',
-            'description': 'Vampires are very dangerous at night, and causes death to a player if encountered within 5 feet.',
-            'health_range': (10, 40),  
-            'power_range': (5, 10),    
-            'money_range': (3, 25)},
-        {
-            'name': 'Bigfoot',
-            'description': 'Bigfoot specializes in camouflage, and can cause heavy damage to a player if encountered.',
-            'health_range': (15, 75),    
-            'power_range': (10, 20),     
-            'money_range': (10, 50)},
-        {
-            'name': 'Dragon',
-            'description': 'Dragons can breathe fire, causing heavy damage if burned, they can also capture players.',
-            'health_range': (50, 100),
-            'power_range': (20, 40),   
-            'money_range': (50, 100)}
-        ]
-    
-    # randomnly selects a monster from the list above
-    monster = random.choice(monsters)
-    
-    # randomnly chooses a number for health, power, money within the range provided above
-    health = random.randint(monster['health_range'][0], monster['health_range'][1])
-    power = random.randint(monster['power_range'][0], monster['power_range'][1])
-    money = random.randint(monster['money_range'][0], monster['money_range'][1])
-
-    # creates and returns the monster dictionary
-    return {
-        'name': monster['name'],
-        'description': monster['description'],
-        'health': health,
-        'power': power,
-        'money': money
-    }
-
-def fight_monster(user_hp, user_gold):
-    """
-    Handles the fight between the user and a monster.
-    """
-    # Generate a random monster
-    monster = new_random_monster()
-    print("\nA wild monster appears!")
-    print(f"Monster: {monster['name']}")
-    print(f"Health: {monster['health']}")
-    print(f"Power: {monster['power']}")
-
-    while monster['health'] > 0 and user_hp > 0:
-        # Display fight options
-        print("\nWhat would you like to do?")
-        print("1) Attack")
-        print("2) Run away")
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            # User attacks the monster
-            user_damage = random.randint(5, 15)  # Random damage between 5 and 15
-            monster['health'] -= user_damage
-            print(f"\nYou dealt {user_damage} damage to the {monster['name']}!")
-
-            # Monster attacks the user
-            monster_damage = random.randint(3, 10)  # Random damage between 3 and 10
-            user_hp -= monster_damage
-            print(f"The {monster['name']} dealt {monster_damage} damage to you!")
-
-            # Display current stats
-            print(f"\nYour HP: {user_hp}")
-            print(f"{monster['name']}'s HP: {monster['health']}")
-
-        elif choice == "2":
-            # User runs away
-            print("\nYou ran away!")
-            break
-
-        else:
-            print("Invalid choice. Please try again.")
-
-    # Check if the user or monster won
-    if monster['health'] <= 0:
-        print(f"\nYou defeated the {monster['name']}!")
-        user_gold += monster['money']
-        print(f"You gained {monster['money']} gold!")
-    elif user_hp <= 0:
-        print("\nYou were defeated... Game Over!")
-        exit()
-    return user_hp, user_gold
-
-def visit_shop(user_gold, inventory):
-    """
-    Allows the user to buy items from the shop.
-    """
-
-    # Shop items
-    shop_items = [
-        {"name": "Sword", "type": "weapon", "price": 15, "damage_bonus": 5, "durability": 5},
-        {"name": "Axe", "type": "weapon", "price": 10, "damage_bonus": 3, "durability": 3},
-        {"name": "Monster Repellent", "type": "weapon", "price": 8, "damage_bonus": 0, "durability": 1, "effect": "auto_defeat"},
-        {"name": "Health Potion", "type": "consumable", "price": 5, "effect": "heal", "amount": 10}
-    ]
-    
-    print("\nWelcome to the shop!")
-    print(f"Your gold: {user_gold}")
-    print("Available items:")
-    
-    for i, item in enumerate(shop_items, 1):
-        print(f"{i}) {item['name']} - {item['price']} gold (Type: {item['type']})")
-    
-    print(f"{len(shop_items)+1}) Back to town")
+def show_main_menu():
+    print("\nMAIN MENU")
+    print("1) New Game")
+    print("2) Load Game")
+    print("3) Quit")
     
     while True:
-        choice = input("Enter your choice: ")
+        choice = input("Choose an option: ")
+        if choice == "1": return initialize_game_state()
+        elif choice == "2": return show_load_menu()
+        elif choice == "3": return None
+        print("Invalid choice!")
+
+def show_load_menu():
+    save_files = glob.glob("*.sav")
+    if not save_files:
+        print("No saved games found! Starting new game.")
+        return initialize_game_state()
+    
+    print("\nAvailable Saved Games:")
+    for i, file in enumerate(save_files, 1):
+        print(f"{i}) {file}")
+    print(f"{len(save_files)+1}) Back")
+    
+    while True:
+        try:
+            choice = int(input("Choose a save file: "))
+            if choice == len(save_files)+1: return show_main_menu()
+            if 1 <= choice <= len(save_files): return load_game_state(save_files[choice-1])
+        except ValueError: pass
+        print("Invalid choice!")
+
+def show_save_menu(game_state):
+    print("\nSAVE MENU")
+    print("1) Quick Save (autosave.sav)")
+    print("2) Save As...")
+    print("3) Load Game")
+    print("4) Back")
+    
+    while True:
+        choice = input("Choose an option: ")
+        if choice == "1":
+            save_game_state(game_state, "autosave.sav")
+            print("Game saved to autosave.sav!")
+            break
+        elif choice == "2":
+            filename = input("Enter save file name (e.g., mysave.sav): ")
+            if not filename.endswith('.sav'):
+                filename += '.sav'
+            save_game_state(game_state, filename)
+            print(f"Game saved to {filename}!")
+            break
+        elif choice == "3": 
+            return show_load_menu()
+        elif choice == "4": 
+            break
+        print("Invalid choice!")
+
+def initialize_game_state():
+    return {
+        'player_pos': [0, 0],
+        'town_pos': [0, 0],
+        'monster_pos': [5, 5],
+        'user_hp': 30,
+        'user_gold': 20,
+        'inventory': [],
+        'equipped_weapon': None
+    }
+
+def load_game_state(filename):
+    try:
+        with open(filename, 'r') as f:
+            state = json.load(f)
+            print(f"Game loaded from {filename}!")
+            return {**initialize_game_state(), **state}
+    except:
+        print("Error loading saved game! Starting new game.")
+        return initialize_game_state()
+
+def save_game_state(game_state, filename):
+    with open(filename, 'w') as f:
+        json.dump(game_state, f)
+
+def print_welcome(name="Adventurer", width=20):
+    print(f'{f"Hello, {name}!":^{width}}')
+
+def new_random_monster():
+    monsters = [
+        {'name': 'Vampire', 'health_range': (15,25), 'power_range': (5,8), 'money_range': (5,10)},
+        {'name': 'Bigfoot', 'health_range': (20,30), 'power_range': (6,9), 'money_range': (8,15)},
+        {'name': 'Dragon', 'health_range': (25,40), 'power_range': (8,12), 'money_range': (15,25)}
+    ]
+    monster = random.choice(monsters)
+    return {
+        'name': monster['name'],
+        'health': random.randint(*monster['health_range']),
+        'power': random.randint(*monster['power_range']),
+        'money': random.randint(*monster['money_range'])
+    }
+
+def fight_monster(user_hp, user_gold, equipped_weapon, inventory):
+    monster = new_random_monster()
+    print(f"\nA wild {monster['name']} appears!")
+    print(f"Health: {monster['health']}, Power: {monster['power']}")
+    
+    if equipped_weapon and equipped_weapon.get('effect') == 'auto_defeat':
+        print(f"\nUsed {equipped_weapon['name']} to instantly defeat {monster['name']}!")
+        equipped_weapon['current_durability'] -= 1
+        if equipped_weapon['current_durability'] <= 0:
+            print(f"Your {equipped_weapon['name']} has been used up!")
+            inventory.remove(equipped_weapon)
+            equipped_weapon = None
+        user_gold += monster['money']
+        print(f"Gained {monster['money']} gold!")
+        return user_hp, user_gold, equipped_weapon, inventory
+
+    while monster['health'] > 0 and user_hp > 0:
+        print("\n1) Attack")
+        print("2) Run away")
+        if equipped_weapon:
+            print(f"({equipped_weapon['name']} durability: {equipped_weapon['current_durability']}/{equipped_weapon['durability']})")
         
+        choice = input("Choose: ")
+        
+        if choice == "1":
+            damage = random.randint(3,6) + (equipped_weapon['damage_bonus'] if equipped_weapon else 0)
+            monster['health'] -= damage
+            print(f"\nYou dealt {damage} damage!")
+            
+            if equipped_weapon:
+                equipped_weapon['current_durability'] -= 1
+                if equipped_weapon['current_durability'] <= 0:
+                    print(f"Your {equipped_weapon['name']} broke!")
+                    inventory.remove(equipped_weapon)
+                    equipped_weapon = None
+            
+            user_hp -= random.randint(3,6)
+            print(f"The {monster['name']} hit you for {monster['power']} damage!")
+            print(f"Your HP: {user_hp}, Monster HP: {monster['health']}")
+        
+        elif choice == "2":
+            print("\nYou ran away!")
+            break
+    
+    if monster['health'] <= 0:
+        user_gold += monster['money']
+        print(f"\nDefeated {monster['name']}! Gained {monster['money']} gold!")
+    elif user_hp <= 0:
+        print("\nGame Over!")
+        sys.exit()
+    
+    print("\nReturn to town (green square) to replenish health and weapons!")
+    return user_hp, user_gold, equipped_weapon, inventory
+
+def manage_inventory(equipped_weapon, user_hp, inventory):
+    while True:
+        print("\n=== INVENTORY ===")
+        if equipped_weapon:
+            print(f"Equipped: {equipped_weapon['name']} (Durability: {equipped_weapon['current_durability']}/{equipped_weapon['durability']})")
+        
+        if not inventory:
+            print("Your inventory is empty")
+            print("1) Back to town")
+            choice = input("Choose: ")
+            if choice == "1":
+                break
+            continue
+        
+        for i, item in enumerate(inventory, 1):
+            durability_info = ""
+            if item['type'] == "weapon":
+                durability_info = f" (Durability: {item['current_durability']}/{item['durability']})"
+            print(f"{i}) {item['name']}{durability_info}")
+        
+        print(f"{len(inventory)+1}) Back to town")
+        
+        choice = input("Choose an item: ")
+        try:
+            choice = int(choice)
+            if choice == len(inventory)+1:
+                break
+            elif 1 <= choice <= len(inventory):
+                item = inventory[choice-1]
+                if item['type'] == "weapon":
+                    equipped_weapon = item
+                    print(f"Equipped {item['name']}")
+                elif item['type'] == "consumable":
+                    user_hp += item['amount']
+                    inventory.remove(item)
+                    print(f"Used {item['name']}. HP now: {user_hp}")
+        except ValueError:
+            print("Please enter a number!")
+    
+    return equipped_weapon, user_hp, inventory
+
+def visit_shop(user_gold, inventory):
+    shop_items = [
+        {"name": "Sword", "type": "weapon", "price": 15, "damage_bonus": 5, "durability": 5, "current_durability": 5},
+        {"name": "Axe", "type": "weapon", "price": 10, "damage_bonus": 3, "durability": 3, "current_durability": 3},
+        {"name": "Health Potion", "type": "consumable", "price": 5, "effect": "heal", "amount": 10},
+        {"name": "Monster Potion", "type": "weapon", "price": 20, "effect": "auto_defeat", "durability": 1, "current_durability": 1}
+    ]
+    
+    while True:
+        print("\nWelcome to the shop!")
+        print(f"Your gold: {user_gold}")
+        print("Available items:")
+        
+        for i, item in enumerate(shop_items, 1):
+            durability_info = ""
+            if item['type'] == "weapon":
+                durability_info = f" (Durability: {item['current_durability']}/{item['durability']})"
+            print(f"{i}) {item['name']} - {item['price']} gold{durability_info}")
+        
+        print(f"{len(shop_items)+1}) Back to town")
+        
+        choice = input("Choose an item: ")
         try:
             choice = int(choice)
             if choice == len(shop_items)+1:
-                return user_gold, inventory
+                break
             elif 1 <= choice <= len(shop_items):
-                selected_item = shop_items[choice-1]
-                if user_gold >= selected_item['price']:
-                    user_gold -= selected_item['price']
-                    # Create a new copy of the item for inventory
-                    new_item = selected_item.copy()
-                    # For weapons, add current durability equal to max durability
-                    if new_item['type'] == 'weapon':
-                        new_item['current_durability'] = new_item['durability']
-                    inventory.append(new_item)
-                    print(f"\nYou bought {selected_item['name']}!")
-                    print(f"Remaining gold: {user_gold}")
-                    break
+                item = shop_items[choice-1]
+                if user_gold >= item['price']:
+                    user_gold -= item['price']
+                    inventory.append(item.copy())
+                    print(f"You bought {item['name']}!")
                 else:
-                    print("\nNot enough gold!")
-                    break
+                    print("Not enough gold!")
             else:
-                print("\nInvalid choice. Please try again.")
+                print("Invalid choice!")
         except ValueError:
-            print("\nPlease enter a number.")
+            print("Please enter a number!")
+    
     return user_gold, inventory
 
-def manage_inventory(equipped_weapon, user_hp, inventory):
-    """
-    Allows the user to view, equip, unequip, and use items.
-    """
-    while True:
-        print("\n=== INVENTORY ===")
-        if not inventory:
-            print("Your inventory is empty.")
-            print("1) Back to town")
-            print("2) Save and Quit")
-            choice = input("Enter your choice: ")
-            if choice == "1":
-                return equipped_weapon, user_hp
-            elif choice == "2":
-                return "save_and_quit", user_hp
-            continue
-         # Display equipped weapon status
-        if equipped_weapon:
-            print(f"Currently equipped: {equipped_weapon['name']} "
-                  f"({equipped_weapon.get('current_durability', equipped_weapon['durability'])}/{equipped_weapon['durability']} dura)")
-        else:
-            print("No weapon currently equipped")
-        
-        # Display all items
-        for i, item in enumerate(inventory, 1):
-            item_info = f"{i}) {item['name']} ({item['type']})"
-            if item == equipped_weapon:
-                item_info += " [EQUIPPED]"
-            elif item['type'] == 'weapon':
-                durability = item.get('current_durability', item['durability'])
-                item_info += f" [Weapon - {durability}/{item['durability']} dura]"
-            print(item_info)
-        
-        print(f"\nOptions:")
-        print("1-{}) Select item".format(len(inventory)))
-        if equipped_weapon:
-            print("U) Unequip current weapon")
-        print("B) Back to town")
-        
-        # Rest of the existing function remains the same until the choice handling:
-        
-        choice = input("\nWhat would you like to do? ").upper()
-
-        if choice == "B":
-            return equipped_weapon, user_hp
-        elif choice == "S":
-            return "save_and_quit", user_hp
-        elif choice == "U" and equipped_weapon:
-            print(f"\nYou unequipped {equipped_weapon['name']}")
-            equipped_weapon = None
-            continue
-        else:
-            try:
-                choice = int(choice)
-                if 1 <= choice <= len(inventory):
-                    selected_item = inventory[choice-1]
-                    
-                    if selected_item['type'] == "weapon":
-                        if selected_item == equipped_weapon:
-                            print(f"\n{selected_item['name']} is already equipped!")
-                        else:
-                            if equipped_weapon:
-                                print(f"\nSwapped {equipped_weapon['name']} for {selected_item['name']}")
-                            else:
-                                print(f"\nEquipped {selected_item['name']}")
-                            equipped_weapon = selected_item
-                    
-                    elif selected_item['type'] == "consumable":
-                        user_hp, inventory = use_consumable(selected_item, user_hp, inventory)
-                        return  # Return to town after using consumable
-                    
-                    else:
-                        print("\nThis item has no special use.")
-                else:
-                    print("\nInvalid choice. Please try again.")
-            except ValueError:
-                print("\nPlease enter a valid item number or command.")
-            return equipped_weapon, user_hp
-
-def use_consumable(item, user_hp, inventory):
-    """Uses a consumable item from the inventory."""
-    
-    if item['effect'] == "heal":
-        user_hp += item['amount']
-        print(f"You used {item['name']} and healed {item['amount']} HP!")
-    elif item['effect'] == "auto_defeat":
-        print(f"You used {item['name']} - it will automatically defeat the next monster!")
-    
-    inventory.remove(item)
-
-    return user_hp, inventory
-
 def sleep(user_hp, user_gold):
-    """
-    Restores the user's HP for 5 gold.
-    """
-    if user_gold >= 5:
-        user_gold -= 5
+    cost = 5
+    if user_gold >= cost:
+        user_gold -= cost
         user_hp = 30
         print("\nYou slept and restored your HP to 30!")
     else:
         print("\nYou don't have enough gold to sleep.")
     return user_hp, user_gold
 
-
-def purchase_item(itemPrice, startingMoney, quantityToPurchase=1):
-    if __name__ == "__main__":
-        purchase_item()
-    """
-    Calculates the number of items that can be purchased and the leftover money.
-
-    Parameters:
-    itemPrice (float): The price of one item.
-    startingMoney (float): The amount of money available for purchase.
-    quantityToPurchase (int, optional): The desired quantity to purchase. Defaults to 1.
-
-    Returns:
-    tuple: A tuple containing:
-        - quantityToPurchase (int): The number of items that can be purchased.
-        - leftover_money (float): The amount of money remaining after the purchase.
-
-    Examples:
-    >>> purchase_item(1.23, 10, 3)
-    (3, 6.31)  # Purchases 3 items, $6.31 leftover
-
-    """
-    
-    total_cost = itemPrice * quantityToPurchase # total cost of purchase
-
-    if total_cost > startingMoney:
-        quantityToPurchase = int(startingMoney // itemPrice) #how many can be bought with startingMoney
-
-    leftover_money = startingMoney - (itemPrice * quantityToPurchase) #how much money is leftover
-    
-    return quantityToPurchase, leftover_money #returns the number to purchase and leftover money
-
-def print_shop_menu(item1Name, item1Price, item2Name, item2Price):
-    if __name__ == __main__:
-        print_shop_menu()
-    """
-    Prints a sign that contains a list of two items and their corresponding prices.
-    Items are left-aligned in the menu, while the prices are right-aligned (with decimal points lining up).
-    Prices are formatted to show 2 decimal places, and preceded with a dollar sign
-    (with no space between the dollar sign and the price).
-    The item name field has 12 characters, and the item price field has 8 characters.
-    The sign is surrounded with a nice border to differentiate it from other text.
-
-    Parameters:
-    item1Name (str): The name of the first item.
-    item1Price (float): The price of the first item.
-    item2Name (str): The name of the second item.
-    item2Price (float): The price of the second item.
-
-    Returns:
-    None
-
-    Example:
-    >>> print_shop_menu('Bag of Chips', 7, 'Orange', 1.234)
-
-    """
-
-    print('/----------------------\\') #print border
-    print(f'| {item1Name:<12} ${item1Price:>7.2f} |') #print the first item and price
-    print(f'| {item2Name:<12} ${item2Price:>7.2f} |') #print the second item and price
-    print('\\----------------------/') #print border
+def display_town_menu(user_hp, user_gold, equipped_weapon):
+    print("\nYou are in town.")
+    print(f"HP: {user_hp}, Gold: {user_gold}")
+    if equipped_weapon:
+        print(f"Weapon: {equipped_weapon['name']} (Durability: {equipped_weapon['current_durability']}/{equipped_weapon['durability']})")
+    print("\n1) Leave town")
+    print("2) Sleep (Restore HP for 5 Gold)")
+    print("3) Visit Shop")
+    print("4) Manage Inventory")
+    print("5) Save and Quit")
