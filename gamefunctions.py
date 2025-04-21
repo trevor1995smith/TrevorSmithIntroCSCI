@@ -1,13 +1,19 @@
 #Trevor Smith
-#Assignment 12
-#4/12/25
+#Assignment 13
+#4/20/25
 
 import random
 import json
 import os
 import glob
+import sys
+from wanderingMonster import WanderingMonster
+
+# Game constants
+GRID_SIZE = 10
 
 def show_main_menu():
+    """Display main menu and return game state."""
     print("\nMAIN MENU")
     print("1) New Game")
     print("2) Load Game")
@@ -21,6 +27,7 @@ def show_main_menu():
         print("Invalid choice!")
 
 def show_load_menu():
+    """Display load menu and return game state."""
     save_files = glob.glob("*.sav")
     if not save_files:
         print("No saved games found! Starting new game.")
@@ -40,6 +47,7 @@ def show_load_menu():
         print("Invalid choice!")
 
 def show_save_menu(game_state):
+    """Display save menu options."""
     print("\nSAVE MENU")
     print("1) Quick Save (autosave.sav)")
     print("2) Save As...")
@@ -66,64 +74,62 @@ def show_save_menu(game_state):
         print("Invalid choice!")
 
 def initialize_game_state():
+    """Initialize new game state with default values."""
     return {
         'player_pos': [0, 0],
-        'town_pos': [0, 0],
-        'monster_pos': [5, 5],
+        'town_pos': [GRID_SIZE-1, GRID_SIZE-1],
         'user_hp': 30,
         'user_gold': 20,
         'inventory': [],
-        'equipped_weapon': None
+        'equipped_weapon': None,
+        'monsters': []
     }
 
 def load_game_state(filename):
+    """Load game state from file, reconstructing monsters."""
     try:
         with open(filename, 'r') as f:
             state = json.load(f)
             print(f"Game loaded from {filename}!")
+            
+            # Reconstruct monsters from saved data
+            if 'monsters' in state:
+                state['monsters'] = [WanderingMonster(data=m) for m in state['monsters']]
+            
             return {**initialize_game_state(), **state}
-    except:
-        print("Error loading saved game! Starting new game.")
+    except Exception as e:
+        print(f"Error loading saved game: {e}. Starting new game.")
         return initialize_game_state()
 
 def save_game_state(game_state, filename):
+    """Save game state to file, converting monsters to dicts."""
+    state_to_save = game_state.copy()
+    state_to_save['monsters'] = [m.to_dict() for m in state_to_save.get('monsters', [])]
+    
     with open(filename, 'w') as f:
-        json.dump(game_state, f)
+        json.dump(state_to_save, f)
 
 def print_welcome(name="Adventurer", width=20):
+    """Print welcome message."""
     print(f'{f"Hello, {name}!":^{width}}')
 
-def new_random_monster():
-    monsters = [
-        {'name': 'Vampire', 'health_range': (15,25), 'power_range': (5,8), 'money_range': (5,10)},
-        {'name': 'Bigfoot', 'health_range': (20,30), 'power_range': (6,9), 'money_range': (8,15)},
-        {'name': 'Dragon', 'health_range': (25,40), 'power_range': (8,12), 'money_range': (15,25)}
-    ]
-    monster = random.choice(monsters)
-    return {
-        'name': monster['name'],
-        'health': random.randint(*monster['health_range']),
-        'power': random.randint(*monster['power_range']),
-        'money': random.randint(*monster['money_range'])
-    }
-
-def fight_monster(user_hp, user_gold, equipped_weapon, inventory):
-    monster = new_random_monster()
-    print(f"\nA wild {monster['name']} appears!")
-    print(f"Health: {monster['health']}, Power: {monster['power']}")
+def fight_monster(user_hp, user_gold, equipped_weapon, inventory, monster):
+    """Handle combat with a monster."""
+    print(f"\nA wild {monster.name} appears!")
+    print(f"Health: {monster.health}, Power: {monster.power}")
     
     if equipped_weapon and equipped_weapon.get('effect') == 'auto_defeat':
-        print(f"\nUsed {equipped_weapon['name']} to instantly defeat {monster['name']}!")
+        print(f"\nUsed {equipped_weapon['name']} to instantly defeat {monster.name}!")
         equipped_weapon['current_durability'] -= 1
         if equipped_weapon['current_durability'] <= 0:
             print(f"Your {equipped_weapon['name']} has been used up!")
             inventory.remove(equipped_weapon)
             equipped_weapon = None
-        user_gold += monster['money']
-        print(f"Gained {monster['money']} gold!")
-        return user_hp, user_gold, equipped_weapon, inventory
+        user_gold += monster.money
+        print(f"Gained {monster.money} gold!")
+        return user_hp, user_gold, equipped_weapon, inventory, True
 
-    while monster['health'] > 0 and user_hp > 0:
+    while monster.health > 0 and user_hp > 0:
         print("\n1) Attack")
         print("2) Run away")
         if equipped_weapon:
@@ -133,7 +139,7 @@ def fight_monster(user_hp, user_gold, equipped_weapon, inventory):
         
         if choice == "1":
             damage = random.randint(3,6) + (equipped_weapon['damage_bonus'] if equipped_weapon else 0)
-            monster['health'] -= damage
+            monster.health -= damage
             print(f"\nYou dealt {damage} damage!")
             
             if equipped_weapon:
@@ -143,25 +149,28 @@ def fight_monster(user_hp, user_gold, equipped_weapon, inventory):
                     inventory.remove(equipped_weapon)
                     equipped_weapon = None
             
-            user_hp -= random.randint(3,6)
-            print(f"The {monster['name']} hit you for {monster['power']} damage!")
-            print(f"Your HP: {user_hp}, Monster HP: {monster['health']}")
+            user_hp -= monster.power
+            print(f"The {monster.name} hit you for {monster.power} damage!")
+            print(f"Your HP: {user_hp}, Monster HP: {monster.health}")
         
         elif choice == "2":
             print("\nYou ran away!")
             break
     
-    if monster['health'] <= 0:
-        user_gold += monster['money']
-        print(f"\nDefeated {monster['name']}! Gained {monster['money']} gold!")
+    defeated = False
+    if monster.health <= 0:
+        user_gold += monster.money
+        print(f"\nDefeated {monster.name}! Gained {monster.money} gold!")
+        defeated = True
     elif user_hp <= 0:
         print("\nGame Over!")
         sys.exit()
     
     print("\nReturn to town (green square) to replenish health and weapons!")
-    return user_hp, user_gold, equipped_weapon, inventory
+    return user_hp, user_gold, equipped_weapon, inventory, defeated
 
 def manage_inventory(equipped_weapon, user_hp, inventory):
+    """Handle inventory management menu."""
     while True:
         print("\n=== INVENTORY ===")
         if equipped_weapon:
@@ -203,6 +212,7 @@ def manage_inventory(equipped_weapon, user_hp, inventory):
     return equipped_weapon, user_hp, inventory
 
 def visit_shop(user_gold, inventory):
+    """Handle shop menu and purchases."""
     shop_items = [
         {"name": "Sword", "type": "weapon", "price": 15, "damage_bonus": 5, "durability": 5, "current_durability": 5},
         {"name": "Axe", "type": "weapon", "price": 10, "damage_bonus": 3, "durability": 3, "current_durability": 3},
@@ -244,6 +254,7 @@ def visit_shop(user_gold, inventory):
     return user_gold, inventory
 
 def sleep(user_hp, user_gold):
+    """Handle sleeping to restore HP."""
     cost = 5
     if user_gold >= cost:
         user_gold -= cost
@@ -254,6 +265,7 @@ def sleep(user_hp, user_gold):
     return user_hp, user_gold
 
 def display_town_menu(user_hp, user_gold, equipped_weapon):
+    """Display town menu options."""
     print("\nYou are in town.")
     print(f"HP: {user_hp}, Gold: {user_gold}")
     if equipped_weapon:
@@ -263,3 +275,5 @@ def display_town_menu(user_hp, user_gold, equipped_weapon):
     print("3) Visit Shop")
     print("4) Manage Inventory")
     print("5) Save and Quit")
+
+
