@@ -1,149 +1,247 @@
 #Trevor Smith
-#Assignment 11
-#4/6/25
+#Assignment 14
+#4/21/25
 
-import json
-import os
+import pygame
+import sys
 import random
-import gamefunctions
+from gamefunctions import *
+from wanderingMonster import WanderingMonster
 
-def save_game(filename, game_data):
-    """Saves the game data to a JSON file."""
-    try:
-        with open(filename, 'w') as f:
-            json.dump(game_data, f)
-        print(f"Game saved successfully to {filename}!")
-        return True
-    except Exception as e:
-        print(f"Error saving game: {e}")
-        return False
+# Game display constants
+SCREEN_SIZE = (320, 320)
+CELL_SIZE = 32
+COLORS = {
+    'player': (0, 0, 255),      # Blue
+    'town': (0, 255, 0),        # Green
+    'bg': (255, 255, 255),      # White
+    'grid': (200, 200, 200)     # Light gray
+}
 
-def load_game(filename):
-    """Loads game data from a JSON file."""
-    try:
-        with open(filename, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        print(f"Error: Save file {filename} not found!")
-        return None
-    except Exception as e:
-        print(f"Error loading game: {e}")
-        return None
+class MapGame:
+    def __init__(self, game_state):
+        """Initialize the game map with monsters and pygame."""
+        self.game_state = game_state
+        self._initialize_monsters()
+        self.init_pygame()
+        self._load_images()
+    
+    def _initialize_monsters(self):
+        """Ensure proper monster initialization in game state."""
+        if 'monsters' not in self.game_state:
+            self.game_state['monsters'] = []
+        
+        # Create new monsters if none exist or if they're not valid
+        if len(self.game_state['monsters']) == 0 or not isinstance(self.game_state['monsters'][0], WanderingMonster):
+            self.game_state['monsters'] = [
+                WanderingMonster(GRID_SIZE, self.game_state['town_pos']),
+                WanderingMonster(GRID_SIZE, self.game_state['town_pos'])
+            ]
+    
+    def init_pygame(self):
+        """Initialize pygame components."""
+        pygame.init()
+        self.screen = pygame.display.set_mode(SCREEN_SIZE)
+        pygame.display.set_caption("Adventure Map")
+        self.clock = pygame.time.Clock()
+        self.running = True
+    
+    def _load_images(self):
+        """Load game images with fallback to colored rectangles."""
+        # Player image
+        try:
+            self.player_img = pygame.image.load('player.png')
+            self.player_img = pygame.transform.scale(self.player_img, (CELL_SIZE, CELL_SIZE))
+        except (pygame.error, FileNotFoundError):
+            self.player_img = None
+        
+        # Town image
+        try:
+            self.town_img = pygame.image.load('town.png')
+            self.town_img = pygame.transform.scale(self.town_img, (CELL_SIZE, CELL_SIZE))
+        except (pygame.error, FileNotFoundError):
+            self.town_img = None
+    
+    def run(self):
+        """Main game loop."""
+        while self.running:
+            self.handle_events()
+            self.draw()
+            self.clock.tick(60)
+        pygame.quit()
+        return self.game_state
+    
+    def handle_events(self):
+        """Handle user input and game events."""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            
+            if event.type == pygame.KEYDOWN:
+                new_pos = self.game_state['player_pos'].copy()
+                
+                # Handle movement keys
+                if event.key == pygame.K_UP: new_pos[1] -= 1
+                elif event.key == pygame.K_DOWN: new_pos[1] += 1
+                elif event.key == pygame.K_LEFT: new_pos[0] -= 1
+                elif event.key == pygame.K_RIGHT: new_pos[0] += 1
+                elif event.key == pygame.K_ESCAPE: 
+                    self.running = False
+                    show_save_menu(self.game_state)
+                    return
+                
+                # Keep player within bounds
+                new_pos[0] = max(0, min(GRID_SIZE-1, new_pos[0]))
+                new_pos[1] = max(0, min(GRID_SIZE-1, new_pos[1]))
+                
+                if new_pos != self.game_state['player_pos']:
+                    self.game_state['player_pos'] = new_pos
+                    save_game_state(self.game_state, "autosave.sav")
+                    
+                    # Check for town entry
+                    if new_pos == self.game_state['town_pos']:
+                        self.running = False
+                    else:
+                        self._handle_monster_collisions()
+                    
+                    # Move monsters every other player move (50% chance)
+                    if len(self.game_state['monsters']) > 0 and random.random() < 0.5:
+                        for monster in self.game_state['monsters']:
+                            monster.move(
+                                GRID_SIZE,
+                                self.game_state['town_pos'],
+                                self.game_state['player_pos']
+                            )
+    
+    def _handle_monster_collisions(self):
+        """Check for and handle player-monster collisions."""
+        monsters_to_remove = []
+        for i, monster in enumerate(self.game_state['monsters']):
+            if self.game_state['player_pos'] == monster.position:
+                # Pause pygame to handle text-based combat
+                self.running = False
+                pygame.quit()
+                
+                # Fight the monster
+                result = fight_monster(
+                    self.game_state['user_hp'],
+                    self.game_state['user_gold'],
+                    self.game_state['equipped_weapon'],
+                    self.game_state['inventory'],
+                    monster
+                )
+                # Update game state with combat results
+                self.game_state['user_hp'], self.game_state['user_gold'], \
+                self.game_state['equipped_weapon'], self.game_state['inventory'], defeated = result
+                
+                if defeated:
+                    monsters_to_remove.append(i)
+                
+                # Save after combat
+                save_game_state(self.game_state, "autosave.sav")
+                
+                # Restart pygame
+                self.init_pygame()
+                self._load_images()
+                self.running = True
+                break
+        
+        # Remove defeated monsters
+        for i in sorted(monsters_to_remove, reverse=True):
+            self.game_state['monsters'].pop(i)
+        
+        # Respawn monsters if all were defeated
+        if len(self.game_state['monsters']) == 0:
+            self.game_state['monsters'] = [
+                WanderingMonster(GRID_SIZE, self.game_state['town_pos']),
+                WanderingMonster(GRID_SIZE, self.game_state['town_pos'])
+            ]
+    
+    def draw(self):
+        """Render the game state."""
+        try:
+            # Clear screen
+            self.screen.fill(COLORS['bg'])
+            
+            # Draw grid lines
+            for x in range(0, SCREEN_SIZE[0], CELL_SIZE):
+                pygame.draw.line(self.screen, COLORS['grid'], (x, 0), (x, SCREEN_SIZE[1]))
+            for y in range(0, SCREEN_SIZE[1], CELL_SIZE):
+                pygame.draw.line(self.screen, COLORS['grid'], (0, y), (SCREEN_SIZE[0], y))
+            
+            # Draw game objects
+            # Town
+            if self.town_img:
+                self.screen.blit(self.town_img, 
+                                (self.game_state['town_pos'][0] * CELL_SIZE, 
+                                 self.game_state['town_pos'][1] * CELL_SIZE))
+            else:
+                pygame.draw.rect(self.screen, COLORS['town'], 
+                                (self.game_state['town_pos'][0] * CELL_SIZE,
+                                 self.game_state['town_pos'][1] * CELL_SIZE,
+                                 CELL_SIZE, CELL_SIZE))
+            
+            # Monsters
+            for monster in self.game_state['monsters']:
+                self.screen.blit(monster.surface,
+                                (monster.position[0] * CELL_SIZE,
+                                 monster.position[1] * CELL_SIZE))
+            
+            # Player
+            if self.player_img:
+                self.screen.blit(self.player_img,
+                                (self.game_state['player_pos'][0] * CELL_SIZE,
+                                 self.game_state['player_pos'][1] * CELL_SIZE))
+            else:
+                pygame.draw.rect(self.screen, COLORS['player'],
+                                (self.game_state['player_pos'][0] * CELL_SIZE,
+                                 self.game_state['player_pos'][1] * CELL_SIZE,
+                                 CELL_SIZE, CELL_SIZE))
+            
+            pygame.display.flip()
+        except pygame.error:
+            self.running = False
 
-def get_save_files():
-    """Returns a list of available save files"""
-    return [f for f in os.listdir() if f.endswith('.sav')]
+def town_menu(game_state):
+    """Handle the town menu interface."""
+    while True:
+        display_town_menu(
+            game_state['user_hp'],
+            game_state['user_gold'],
+            game_state['equipped_weapon']
+        )
+        
+        choice = input("Choose an option: ")
+        
+        if choice == "1":  # Leave town
+            map_game = MapGame(game_state.copy())
+            updated_state = map_game.run()
+            game_state.update(updated_state)
+        elif choice == "2":  # Sleep
+            game_state['user_hp'], game_state['user_gold'] = sleep(
+                game_state['user_hp'], game_state['user_gold'])
+            save_game_state(game_state, "autosave.sav")
+        elif choice == "3":  # Visit Shop
+            game_state['user_gold'], game_state['inventory'] = visit_shop(
+                game_state['user_gold'], game_state['inventory'])
+            save_game_state(game_state, "autosave.sav")
+        elif choice == "4":  # Manage Inventory
+            result = manage_inventory(
+                game_state['equipped_weapon'],
+                game_state['user_hp'],
+                game_state['inventory'])
+            game_state['equipped_weapon'], game_state['user_hp'], game_state['inventory'] = result
+            save_game_state(game_state, "autosave.sav")
+        elif choice == "5":  # Save and Quit
+            show_save_menu(game_state)
+            return
 
 def main():
-    """
-    Main game loop with save/load functionality.
-    """
-    print("Welcome to the game!")
-    
-    # Ask if user wants to load a game
-    save_files = get_save_files()
-    if save_files:
-        print("\nWould you like to:")
-        print("1) Start a new game")
-        print("2) Load a saved game")
-        choice = input("Enter your choice (1 or 2): ")
-        
-        if choice == "2":
-            print("\nAvailable save files:")
-            for i, filename in enumerate(save_files, 1):
-                print(f"{i}) {filename}")
-            print(f"{len(save_files)+1}) Cancel and start new game")
-            
-            try:
-                load_choice = int(input("Select a save file to load: "))
-                if 1 <= load_choice <= len(save_files):
-                    game_data = load_game(save_files[load_choice-1])
-                    if game_data:
-                        user_hp = game_data['user_hp']
-                        user_gold = game_data['user_gold']
-                        inventory = game_data['inventory']
-                        equipped_weapon = game_data.get('equipped_weapon')
-                        user_name = game_data.get('user_name', 'Adventurer')
-                        print(f"\nWelcome back, {user_name}!")
-                    else:
-                        # If loading failed, start new game
-                        user_name = input("Please enter your name: ")
-                        user_hp = 30
-                        user_gold = 10
-                        inventory = []
-                        equipped_weapon = None
-                else:
-                    # Start new game
-                    user_name = input("Please enter your name: ")
-                    user_hp = 30
-                    user_gold = 10
-                    inventory = []
-                    equipped_weapon = None
-            except ValueError:
-                print("Invalid input. Starting new game.")
-                user_name = input("Please enter your name: ")
-                user_hp = 30
-                user_gold = 10
-                inventory = []
-                equipped_weapon = None
-        else:
-            # Start new game
-            user_name = input("Please enter your name: ")
-            user_hp = 30
-            user_gold = 10
-            inventory = []
-            equipped_weapon = None
-    else:
-        # No save files, start new game
-        user_name = input("Please enter your name: ")
-        user_hp = 30
-        user_gold = 10
-        inventory = []
-        equipped_weapon = None
-    
-    gamefunctions.print_welcome(user_name)
-
-    while True:
-        print("\nYou are in town.")
-        print(f"Current HP: {user_hp}, Current Gold: {user_gold}")
-        if equipped_weapon:
-            print(f"Equipped Weapon: {equipped_weapon['name']} (Durability: {equipped_weapon.get('current_durability', equipped_weapon['durability'])}/{equipped_weapon['durability']})")
-        print("What would you like to do?")
-        print("1) Leave town (Fight Monster)")
-        print("2) Sleep (Restore HP for 5 Gold)")
-        print("3) Visit Shop")
-        print("4) Manage Inventory")
-        print("5) Save and Quit")
-        print("6) Quit without saving")
-        
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            user_hp, user_gold = gamefunctions.fight_monster(user_hp, user_gold)
-        elif choice == "2":
-            user_hp, user_gold = gamefunctions.sleep(user_hp, user_gold)
-        elif choice == "3":
-            user_gold, inventory = gamefunctions.visit_shop(user_gold, inventory)
-        elif choice == "4":
-            equipped_weapon, user_hp = gamefunctions.manage_inventory(equipped_weapon, user_hp, inventory)
-        elif choice == "5":
-            # Save and Quit
-            game_data = {
-                'user_name': user_name,
-                'user_hp': user_hp,
-                'user_gold': user_gold,
-                'inventory': inventory,
-                'equipped_weapon': equipped_weapon
-            }
-            filename = f"{user_name}_save.sav"
-            if save_game(filename, game_data):
-                print("Game saved. Goodbye!")
-                break
-        elif choice == "6":
-            print("\nThanks for playing! Goodbye!")
-            break
-        else:
-            print("Invalid choice. Please try again.")
+    """Main game entry point."""
+    print_welcome()
+    game_state = show_main_menu()
+    if game_state:
+        town_menu(game_state)
 
 if __name__ == "__main__":
     main()
