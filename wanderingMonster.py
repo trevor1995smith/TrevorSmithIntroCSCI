@@ -1,19 +1,20 @@
 #Trevor Smith
-#Assignment 13
-#4/20/25
+#Assignment 14
+#4/21/25
 
 import random
+import pygame
 
 class WanderingMonster:
     """A class representing a wandering monster in the game."""
-    
+
     MONSTER_TYPES = [
         {'name': 'Zombie', 'health_range': (15,25), 'power_range': (5,8), 
-         'money_range': (5,10), 'color': (255, 0, 0)},  # Red
+         'money_range': (5,10), 'color': (255, 0, 0), 'image': 'zombie.png'},
         {'name': 'Slime', 'health_range': (20,30), 'power_range': (6,9), 
-         'money_range': (8,15), 'color': (0, 255, 0)},  # Green
+         'money_range': (8,15), 'color': (0, 255, 0), 'image': 'slime.png'},
         {'name': 'Ghost', 'health_range': (25,40), 'power_range': (8,12), 
-         'money_range': (15,25), 'color': (200, 200, 255)}  # Light blue
+         'money_range': (15,25), 'color': (200, 200, 255), 'image': 'ghost.png'}
     ]
     
     def __init__(self, grid_size=10, town_pos=None, data=None):
@@ -26,6 +27,7 @@ class WanderingMonster:
             self.money = data['money']
             self.color = tuple(data['color'])
             self.position = data['position']
+            self.image = data.get('image')
         else:
             # Initialize new random monster
             monster_type = random.choice(self.MONSTER_TYPES)
@@ -34,7 +36,25 @@ class WanderingMonster:
             self.power = random.randint(*monster_type['power_range'])
             self.money = random.randint(*monster_type['money_range'])
             self.color = monster_type['color']
+            self.image = monster_type['image']
             self.position = self._get_valid_position(grid_size, town_pos)
+        
+        # Load image with fallback to colored rectangle
+        self.surface = self._load_image()
+    
+    def _load_image(self):
+        """Load monster image with fallback to colored rectangle."""
+        try:
+            if self.image:
+                img = pygame.image.load(self.image)
+                return pygame.transform.scale(img, (32, 32))
+        except (pygame.error, FileNotFoundError):
+            pass
+        
+        # Fallback: create colored rectangle
+        surface = pygame.Surface((32, 32))
+        surface.fill(self.color)
+        return surface
     
     def _get_valid_position(self, grid_size, town_pos):
         """Get a valid random position for the monster."""
@@ -75,5 +95,7 @@ class WanderingMonster:
             'power': self.power,
             'money': self.money,
             'color': self.color,
-            'position': self.position
+            'position': self.position,
+            'image': self.image
         }
+
